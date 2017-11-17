@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title></title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <style type="text/css">
+            html,body {}
+            body {; font-family: Raleway;}
+            h1 {padding:0px; margin:0 auto; font-weight: 100; color: #FFF; font-size: 40px; text-align: center;}
+            #svg-doc { display:block;}
+            header {padding:10px;}
+            header .back-to-article {color:#FFF; font-family: "Raleway", Arial, Verdana; text-decoration: none; font-weight: 200; font-size: 14px;}
+            header .back {color:#FFF;}
+            header .social-wrapper {float:right;}
+            header .social-wrapper .fb-like {vertical-align: top;}
+          .corr1, .corr2{
+            color: white;
+            font-size: 50px;
+          }
+        </style>
+        <script src="snap.svg-min.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script type="text/javascript" src="pearsonCorrelation.js"></script>
+        <script src="jquery.js"></script>
+        <script type="text/javascript">
+
+        var paper, map, spaceship, thruster, moon, flight_path, flight_path_length, last_point;
+
+        window.onload = function () {
+            paper               = map;
+            map                 = Snap('#svg-doc');
+            spaceship           = map.select('#spaceship');
+            spaceshipbbox       = spaceship.getBBox();
+            //thruster            = map.select('#thruster');
+            //moon                = map.select('#moon');
+            // change path here to anything in same format
+            flight_path         = map.path('M219.168148,938.187846 L219.168148,361.180352 L219.168148,361.180352 C219.168148,355.657505 214.690995,351.180352 209.168148,351.180352 L6,351.180352 L6,351.180352 C3.23857625,351.180352 1,348.941776 1,346.180352 C1,344.857471 1.52425083,343.588503 2.45793885,342.651357 L341.969607,1.88260328 L341.969607,1.88260328 C343.139013,0.708867464 345.038505,0.705357406 346.212241,1.87476334 C346.213508,1.87602578 346.214774,1.87728936 346.216039,1.87855406 L685.684428,341.306738 L685.684428,341.306738 C687.637165,343.259243 687.637352,346.425068 685.684847,348.377805 C684.747148,349.315615 683.475288,349.842481 682.149103,349.842481 L476.556442,349.842481 L476.556442,349.842481 C471.033594,349.842481 466.556442,354.319633 466.556442,359.842481 L466.556442,938.519247 L466.556442,938.519247 C466.556442,940.176102 465.213296,941.519247 463.556442,941.519247 C463.555069,941.519247 463.553696,941.519246 463.552323,941.519245 L222.164029,941.187843 L222.164029,941.187843 C220.508784,941.185571 219.168148,939.843092 219.168148,938.187846 Z').attr({ 'fill': 'none', 'stroke': 'black'});
+
+            flight_path_length  = Snap.path.getTotalLength(flight_path);
+            last_point          = flight_path.getPointAtLength(flight_path_length);
+          
+            var animationYCoordinates = [];
+            var animationXCoordinates = [];
+            var socket = io();
+            var memoryLength = 50;
+            var eyeHMovement = [];
+            var eyeVMovement = [];
+            var parts, H1, V1, H2, V2;
+            var combinedHorizontal = [];
+            var combinedVertical = [];
+            var corrHorizontal, corrVertical;
+          
+            var c = document.getElementById("myCanvas");
+            var ctx = c.getContext("2d");
+            //var pointArray = [];
+            var counter = 1;
+            var avgArr = [];
+          
+          
+          function doAnimation(){
+            
+              Snap.animate(0, flight_path_length, function( step ) {
+                moveToPoint = Snap.path.getPointAtLength( flight_path, step );
+                 x = moveToPoint.x - (spaceshipbbox.width/2);
+                 y = moveToPoint.y - (spaceshipbbox.height/2);
+                //ctx.fillRect(counter,(390 + ball.y)/2,2,2);
+                //test this
+                console.log(x + " | " + y);
+                saveAnimationCoordinates(x,y);
+                 spaceship.transform('translate(' + x + ',' + y + ') rotate('+ (moveToPoint.alpha - 90)+', '+spaceshipbbox.cx+', '+spaceshipbbox.cy+')');
+              },2000);
+              
+            loop();
+          }
+          
+          function loop(){
+            setTimeout(doAnimation, 2000);
+          }
+          
+          doAnimation();
+          
+          
+          function saveAnimationCoordinates(xCoord, yCoord){
+            // x-coordinates first
+            if (animationXCoordinates.length < memoryLength) {
+              animationXCoordinates.push(xCoord);
+            } else {
+              animationXCoordinates.splice(0, 1);
+              animationXCoordinates.push(xCoord);
+            }
+            // then y-coordinates
+            if (animationYCoordinates.length < memoryLength) {
+              animationYCoordinates.push(yCoord);
+            } else {
+              animationYCoordinates.splice(0, 1);
+              animationYCoordinates.push(yCoord);
+            }
+          }
+          
+          //==============================
+          
+          
+          socket.on('message', function(msg) {
+            // split string to four parts
+            parts = msg.split(",");
+            // remove first three characters from each and parse to int
+            H1 = parseInt(parts[0].substring(3));
+            V1 = parseInt(parts[1].substring(3));
+            H2 = parseInt(parts[2].substring(3));
+            V2 = parseInt(parts[3].substring(3));
+
+            saveEyeMovements(H1, V1);
+
+            // this is weird: horizontal with Y value => they must use weird coordinates, which way should this be?
+            combinedHorizontal = [eyeHMovement, animationYCoordinates];
+            combinedVertical = [eyeVMovement, animationXCoordinates];
+
+            corrHorizontal = pearsonCorrelation(combinedHorizontal, 0, 1);
+            corrVertical = pearsonCorrelation(combinedVertical, 0, 1);
+
+            $(".corr1").html(corrHorizontal.toFixed(4));
+            $(".corr2").html(corrVertical.toFixed(4));
+            
+            if((corrHorizontal > 0.4 && corrVertical > 0.4) || (corrHorizontal < -0.4 && corrVertical < -0.4)){
+              $('body').css('background-color', 'green');   
+            }else{
+              $('body').css('background-color', 'white');
+            }
+          
+            
+            if(counter >= c.width){
+              counter = 1;
+              clearCanvas();
+            }
+            //drawPoint(counter, H1);
+            drawPoint(counter, animationXCoordinates[animationYCoordinates.length-1]/2);
+            //console.log(animationYCoordinates);
+
+            avgArr.push(-V1);
+            if(counter > 10){
+              //console.log(counter);
+              ctx.fillRect(counter,200 + (avgArr[0] + avgArr[1] + avgArr[2] + avgArr[3] + avgArr[4] + avgArr[5] + avgArr[6] + avgArr[7] + avgArr[8] + avgArr[9])/10,2,2);
+            }
+            if(avgArr.length >= 10){
+              avgArr.splice(0,1);
+            }
+            
+            counter = counter + 2;
+            
+          });
+          
+          function drawPoint(x,y){
+            ctx.fillRect(x,100+y,2,2);
+            //console.log(x);
+          }
+
+          function clearCanvas(){
+            ctx.clearRect(0, 0, c.width, c.height);
+          }
+          
+          function saveEyeMovements(h,v){
+            if(eyeHMovement.length < memoryLength){
+               eyeHMovement.push(h);
+            }else{
+              eyeHMovement.splice(0,1);
+              eyeHMovement.push(h);
+            }
+            if(eyeVMovement.length < memoryLength){
+               eyeVMovement.push(v);
+            }else{
+              eyeVMovement.splice(0,1);
+              eyeVMovement.push(v);
+            }
+          };
+          
+          
+        }
+        </script>
+    </head>
+    <body>
+
+        <div class="corr1">test</div>
+        <div class="corr2">test</div>
+
+        <svg id="svg-doc" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="800px" height="1000px" xml:space="preserve">
+            <g id="spaceship">
+                <g id="thruster">
+                    <path fill="#ECB33E" d="M14.079,30.776H6.003c0,0,0.078,8.152,1.184,14.311c1.524,8.483,5.083,15.145,6.892,16.614
+                    	c1.81-1.47,5.368-8.131,6.891-16.614c1.106-6.159,1.186-14.311,1.186-14.311H14.079z"/>
+                    <path fill="#FECB58" d="M13.854,30.776l-5.804,0c0,0,0.112,9.235,0.926,14.124c1.12,6.733,3.735,12.021,5.066,13.188
+                    	c1.331-1.167,3.946-6.455,5.066-13.188c0.813-4.889,0.926-14.124,0.926-14.124L13.854,30.776z"/>
+                </g>
+                <polygon fill="#FFFFFF" points="28.085,29.648 22.447,26.044 19.433,26.044 9.1,26.044 5.638,26.044 0,29.648 4.314,42.057
+                	4.081,31.832 4.546,31.67 4.538,31.688 23.546,31.688 23.538,31.669 24.004,31.832 23.771,42.057 "/>
+                <path fill="#5FAEDF" d="M22.446,29.265H5.639V7.571c0,0-0.311-7.571,8.404-7.571s8.403,7.571,8.403,7.571V29.265z"/>
+                <path fill="#7ACAF1" d="M13.907,0.855c-0.216-0.013-0.419-0.036-0.65-0.036c-6.954,0-6.706,6.83-6.706,6.83v21.615h1.3V7.649
+                	C7.851,7.649,7.64,1.231,13.907,0.855z"/>
+                <circle cx="14.043" cy="9.028" r="3.557"/>
+            </g>
+        </svg>
+      
+        <canvas id="myCanvas" width="1800" height="800">
+      Your browser does not support the HTML5 canvas tag.</canvas>
+    </body>
+</html>

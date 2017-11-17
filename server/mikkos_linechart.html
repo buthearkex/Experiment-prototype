@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="jquery.js"></script>
+  <title>Line chart</title>
+
+</head>
+
+<body>
+  
+  <canvas id="myCanvas" width="1900" height="800">
+  Your browser does not support the HTML5 canvas tag.</canvas>
+
+
+  
+  <script>
+    var c = document.getElementById("myCanvas");
+    var ctx = c.getContext("2d");
+    
+    var socket = io();
+    var parts, H1, V1, H2, V2;
+    //var pointArray = [];
+    var counter = 1;
+    
+    var avgArr = [];
+    
+    socket.on('message', function(msg) {
+      // split string to four parts
+      parts = msg.split(",");
+      // remove first three characters from each and parse to int
+      H1 = parseInt(parts[0].substring(3));
+      V1 = parseInt(parts[1].substring(3));
+      H2 = parseInt(parts[2].substring(3));
+      V2 = parseInt(parts[3].substring(3));
+
+      if(counter >= c.width){
+        counter = 1;
+        clearCanvas();
+      }
+      drawPoint(counter, -V1);
+      
+      avgArr.push(-V1);
+      if(counter > 13){
+        console.log(counter);
+        ctx.fillRect(counter,200 + (avgArr[0] + avgArr[1] + avgArr[2] + avgArr[3] + avgArr[4] + avgArr[5] + avgArr[6] + avgArr[7] + avgArr[8] + avgArr[9] + avgArr[10] + avgArr[11] + avgArr[12] )/13,2,2);
+      }
+      if(avgArr.length >= 13){
+        avgArr.splice(0,1);
+      }
+      
+      ctx.fillRect(counter,(390 + ball.y)/2,2,2);
+      
+      counter = counter + 2;
+
+    });
+    
+    
+    function drawPoint(x,y){
+      ctx.fillRect(x,100+y,2,2);
+      console.log(x);
+    }
+    
+    function clearCanvas(){
+      ctx.clearRect(0, 0, c.width, c.height);
+    }
+    
+    var radius = 100;
+    var circle = {
+      centerX: 390,
+      centerY: 390,
+      radius: 400,
+      angle: 0
+    }
+    var ball = {
+      x: 0,
+      y: 0,
+      speed: .2
+    };
+    
+    function drawBall(){
+      ctx.clearRect(ball.x, ball.y, 20, 20);
+      ball.x = circle.centerX + Math.cos(circle.angle) * circle.radius;
+      ball.y = circle.centerY + Math.sin(circle.angle) * circle.radius;
+
+      circle.angle += ball.speed;
+
+      ctx.fillRect(ball.x,ball.y,20,20);
+    }
+    
+    setInterval(drawBall, 33);
+    
+  </script> 
+</body>
+
+</html>

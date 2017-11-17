@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Line test</title>
+  <style>
+    #corr1, #corr2, #corr3{
+      font-size: 50px;
+    }
+  </style>
+</head>
+
+<body>
+  <div style="position: absolute; top: 10px; left: 10px;">
+    <canvas id="canvasOne" width="1200" height="1200">
+      Your browser does not support HTML5 Canvas.
+    </canvas>
+  </div>
+  <div style="position: absolute; top: 50px; left: 800px;">horizontal pearson:<h1 id="corr1"></h1></div>
+  <div style="position: absolute; top: 250px; left: 800px;">horizontal spearman:<h1 id="corr2"></h1></div>
+  <div style="position: absolute; top: 400px; left: 800px;">horizontal spearman:<h1 id="corr3"></h1></div>
+  <div style="position: absolute; top: 400px; left: 800px;">horizontal spearman:<h1 id="corr4"></h1></div>
+  
+  
+  <script type="text/javascript" src="line.js"></script>
+  <script type="text/javascript" src="pearsonCorrelation.js"></script>
+  <script type="text/javascript" src="spearson.js"></script>
+  <script type="text/javascript" src="spearmanCorrelation.js"></script>
+  
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="jquery.js"></script>
+  <script>
+    $(function() {
+      var socket = io();
+      var memoryLength =70;
+      var eyeHMovement = [];
+      var eyeVMovement = [];
+      var combinedHorizontal = [];
+      var combinedVertical = [];
+      var corrHorizontal, corrVertical;
+      var parts, H1, V1, H2, V2;
+      
+      socket.on('message', function(msg) {
+        // split string to four parts
+        parts = msg.split(",");
+        // remove first three characters from each and parse to int
+        H1 = parseInt(parts[0].substring(3));
+        V1 = parseInt(parts[1].substring(3));
+        H2 = parseInt(parts[2].substring(3));
+        V2 = parseInt(parts[3].substring(3));
+        
+        saveEyeMovements(H1, V1);
+        
+        // this is weird: horizontal with Y value => they must use weird coordinates
+        combinedHorizontal = [eyeHMovement, circleXCoordinates];
+        combinedVertical = [eyeVMovement, circleYCoordinates];
+        // doesn't make sense to calculate correltaion for the vertical values, instead see that eyeVMovement is small
+        
+        corrHorizontal = pearsonCorrelation(combinedHorizontal, 0, 1);
+        //MUUTETTU
+        corrVertical = pearsonCorrelation(combinedVertical, 0, 1)//spearson.correlation.spearman([1,1,1,1], [0,0,0,0]);
+        
+        var x = eyeHMovement;
+        var y = circleXCoordinates;
+        var corr = spearson.correlation.spearman(x, y);
+        //console.log(corr);*/
+        
+        $("#corr1").html(corrHorizontal.toFixed(4));
+        $("#corr2").html(corrVertical.toFixed(4));
+        $("#corr3").html(H1);
+        $("#corr4").html(V1);
+        
+      });
+      
+      function saveEyeMovements(h,v){
+        if(eyeHMovement.length < memoryLength){
+           eyeHMovement.push(h);
+        }else{
+          eyeHMovement.splice(0,1);
+          eyeHMovement.push(h);
+        }
+        if(eyeVMovement.length < memoryLength){
+           eyeVMovement.push(v);
+        }else{
+          eyeVMovement.splice(0,1);
+          eyeVMovement.push(v);
+        }
+      };
+      
+    });
+
+  </script>
+</body>
+
+</html>

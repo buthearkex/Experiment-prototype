@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Circle test</title>
+  <style>
+    #corr1, #corr2{
+      font-size: 100px;
+    }
+    .container{
+      margin-left: 23%;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <canvas id="canvasOne" width="1000" height="1000">
+      Your browser does not support HTML5 Canvas.
+    </canvas>
+  </div>
+  <div style="display: none; position: absolute; top: 150px; left: 800px;">horizontal:<h1 id="corr1"></h1></div>
+  <div style="display: none; position: absolute; top: 350px; left: 800px;">vertical:<h1 id="corr2"></h1></div>
+  <div style="display:none;">
+    <img id="source" src="meter.png">
+    <img id="source2" src="scroll.png">
+  </div>
+  <script type="text/javascript" src="ball.js"></script>
+  <script type="text/javascript" src="pearsonCorrelation.js"></script>
+  <script type="text/javascript" src="music.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="jquery.js"></script>
+  <script>
+    $(function() {
+      var socket = io();
+      var memoryLength = 50; // this can be varied to change accuracy
+      var eyeHMovement = [];
+      var eyeVMovement = [];
+      var parts, H1, V1, H2, V2;
+      var combinedHorizontal = [];
+      var combinedVertical = [];
+      var corrHorizontal, corrVertical;
+      var avgH = [];
+      var avgV = [];
+      socket.on('message', function(msg) {
+        // split string to four parts
+        parts = msg.split(",");
+        // remove first three characters from each and parse to int
+        H1 = parseInt(parts[0].substring(3));
+        V1 = parseInt(parts[1].substring(3));
+        H2 = parseInt(parts[2].substring(3));
+        V2 = parseInt(parts[3].substring(3));
+        
+        saveAvg(H1, V1);
+        if(avgH.length >= 12){
+          saveEyeMovements();
+        }
+        
+        combinedHorizontal = [eyeHMovement, circleYCoordinates];
+        combinedVertical = [eyeVMovement, circleXCoordinates];
+        
+        corrHorizontal = pearsonCorrelation(combinedHorizontal, 0, 1);
+        corrVertical = pearsonCorrelation(combinedVertical, 0, 1);
+        
+        $("#corr1").html(corrHorizontal.toFixed(4));
+        $("#corr2").html(corrVertical.toFixed(4));
+        
+      });
+      
+      function saveEyeMovements(){
+        if(eyeHMovement.length < memoryLength){
+           eyeHMovement.push((avgH[0] + avgH[1] + avgH[2] + avgH[3] + avgH[4] + avgH[5] + avgH[6] + avgH[7] + avgH[8] + avgH[9] + avgH[10] + avgH[11] + avgH[12])/13);
+        }else{
+          eyeHMovement.splice(0,1);
+          eyeHMovement.push((avgH[0] + avgH[1] + avgH[2] + avgH[3] + avgH[4] + avgH[5] + avgH[6] + avgH[7] + avgH[8] + avgH[9] + avgH[10] + avgH[11] + avgH[12])/13);
+        }
+        if(eyeVMovement.length < memoryLength){
+           eyeVMovement.push((avgV[0] + avgV[1] + avgV[2] + avgV[3] + avgV[4] + avgV[5] + avgV[6] + avgV[7] + avgV[8] + avgV[9] + avgV[10] + avgV[11] + avgV[12])/13);
+        }else{
+          eyeVMovement.splice(0,1);
+          eyeVMovement.push((avgV[0] + avgV[1] + avgV[2] + avgV[3] + avgV[4] + avgV[5] + avgV[6] + avgV[7] + avgV[8] + avgV[9] + avgV[10] + avgV[11] + avgV[12])/13);
+        }
+      };
+      
+      function saveAvg(h,v){
+        avgH.push(h);
+        avgV.push(v);
+        if(avgH.length >= 14){
+          avgH.splice(0,1);
+        }
+        if(avgV.length >= 14){
+          avgV.splice(0,1);
+        }
+        //console.log(avgH.length);
+      };
+      
+    });
+
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Leds</title>
+  <style>
+    #corr1, #corr2, #corr3{
+      font-size: 50px;
+    }
+  </style>
+</head>
+
+<body>
+  <div style="position: absolute; top: 10px; left: 10px;">
+    <canvas id="canvasOne" width="1800" height="500">
+      Your browser does not support HTML5 Canvas.
+    </canvas>
+  </div>
+  
+  <div style="position: absolute; top: 100px; left: 100px;">led:<h1 id="led"></h1></div>
+  <div style="position: absolute; top: 100px; left: 800px;">horizontal:<h1 id="corr1"></h1></div>
+  <div style="position: absolute; top: 150px; left: 800px;">vertical:<h1 id="corr2"></h1></div>
+  
+  
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="jquery.js"></script>
+  <script type="text/javascript" src="leds.js"></script>
+  <script type="text/javascript" src="pearsonCorrelation.js"></script>
+  <!--<script type="text/javascript" src="hue.js"></script>-->
+  <script>
+    var currentLed = 0;
+    
+      var socket = io();
+      
+      var currentLed = 0;
+      var memoryLength = 50;
+      var eyeHMovement = [];
+      var eyeVMovement = [];
+      var parts, H1, V1, H2, V2, t;
+      var combinedHorizontal = [];
+      var combinedVertical = [];
+      var corrHorizontal, corrVertical;
+      var led, time;
+      var leds = [];
+      var avgH = [];
+      var avgV = [];
+      
+      socket.on('leds', function(msg) {
+        msgParts = msg.split(",");
+        led = parseInt(msgParts[0]);
+        time = parseInt(msgParts[1]);
+        
+        $("#led").html(led);
+        
+        saveLedtiming(led, time); 
+        //console.log(leds);
+      });
+      
+      socket.on('message', function(msg) {
+        // split string to four parts
+        parts = msg.split(",");
+        // remove first three characters from each and parse to int
+        H1 = parseInt(parts[0].substring(3));
+        V1 = parseInt(parts[1].substring(3));
+        H2 = parseInt(parts[2].substring(3));
+        V2 = parseInt(parts[3].substring(3));
+        t = parseInt(parts[4].substring(2));
+
+        t = t + 978307200;
+
+        
+        saveEyeMovements(H1, V1); //, t); since 2001 is what obj-c gives
+        //console.log(eyeHMovement);
+        
+        combinedHorizontal = [eyeHMovement, leds];
+
+        
+        corrHorizontal = pearsonCorrelation(combinedHorizontal, 0, 1);
+        //corrVertical = pearsonCorrelation(combinedVertical, 0, 1);
+  
+        $("#corr1").html(corrHorizontal.toFixed(4));
+        //$("#corr2").html(corrVertical.toFixed(4));
+      });
+    
+      
+      function saveEyeMovements(h,v, timestamp){
+        
+        if(eyeHMovement.length < memoryLength){
+           eyeHMovement.push(h);
+        }else{
+          eyeHMovement.splice(0,1);
+          eyeHMovement.push(h);
+        }
+        if(eyeVMovement.length < memoryLength){
+           eyeVMovement.push(v);
+        }else{
+          eyeVMovement.splice(0,1);
+          eyeVMovement.push(v);
+        }
+      };
+      
+      function saveLedtiming(ledValue, timeStamp){
+        
+        if (leds.length < memoryLength){
+          leds.push(ledValue);
+        }else{
+          leds.splice(0,1); 
+          leds.push(ledValue);
+        }
+      };
+    
+      function saveAvg(h,v){
+        avgH.push(h);
+        avgV.push(v);
+        if(avgH.length >= 14){
+          avgH.splice(0,1);
+        }
+        if(avgV.length >= 14){
+          avgV.splice(0,1);
+        }
+        //console.log(avgH.length);
+      };
+      
+    
+  </script>
+</body>
+
+</html>
